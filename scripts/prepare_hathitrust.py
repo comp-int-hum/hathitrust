@@ -13,6 +13,7 @@ from rdflib import Graph, URIRef, BNode, Literal, Namespace
 from rdflib.namespace import CSVW, DC, DCAT, DCTERMS, DOAP, \
     FOAF, ODRL2, ORG, OWL, PROF, PROV, RDF, RDFS, SDO, SH, \
     SKOS, SOSA, SSN, TIME, VOID, XMLNS, XSD
+from pairtree import PairtreeStorageFactory
 
 
 publisher_ids, author_ids = {}, {}
@@ -166,7 +167,8 @@ if __name__ == "__main__":
     import os.path
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", dest="input")
+    parser.add_argument("--csv_input", dest="csv_input")
+    parser.add_argument("--hathitrust_path", dest="hathitrust_path")
     parser.add_argument("--materials_output", dest="materials_output")
     parser.add_argument("--annotation_output", dest="annotation_output")
     parser.add_argument("--data_output", dest="data_output")
@@ -192,7 +194,7 @@ if __name__ == "__main__":
             SDO.contentUrl : [(SH.datatype, XSD.string)],
             SDO.name : [(SH.datatype, XSD.string)],
             SDO.inLanguage : [(SH.datatype, XSD.string)],
-            SDO.datePublished : [(SH.maxInclusive, Literal("2020", datatype=XSD.date))],
+            SDO.datePublished : [(SH.maxInclusive, Literal("2022", datatype=XSD.date))],
             SDO.publisher : [(SH["class"], CDH["Publisher"])],
             SDO.position : [(SH.datatype, XSD.string)],
         },
@@ -210,8 +212,9 @@ if __name__ == "__main__":
     annotation_graph = Graph()
     annotation_graph.bind("cdh", CDH)
 
-
-    with gzip.open(args.input, "rt") as ifd, zipfile.ZipFile(args.materials_output, "w") as zofd:
+    pts = {}
+    psf = PairtreeStorageFactory()
+    with gzip.open(args.csv_input, "rt") as ifd, zipfile.ZipFile(args.materials_output, "w") as zofd:
         c = csv.reader(ifd, delimiter="\t")        
         for i, toks in enumerate(c):
         # for i, (htid, access, rights, ht_bib_key, description, source,
@@ -221,7 +224,7 @@ if __name__ == "__main__":
         #         bib_fmt, collection_code, content_provider_code,
         #         responsible_entity_code, digitization_agent_code,
         #         access_profile_code, author) in enumerate(c):
-            if len(data_graph) > 50000:
+            if len(data_graph) > 5000:
                 partial(data_graph, args.data_output, author_ids, publisher_ids)
                 schema_graph.serialize(destination=args.schema_output)
                 annotation_graph.serialize(destination=args.annotation_output)
@@ -232,7 +235,21 @@ if __name__ == "__main__":
             else:
                 try:
                     document_id = toks[0].strip()
-                    document_text = "This is the text of document {}".format(document_id)
+                    doc_id_toks = document_id.split(".")
+                    print(document_id)
+                    prefix = doc_id_toks[0]
+                    rest = ".".join(doc_id_toks[1:])
+                    pt = pts.setdefault(prefix, psf.get_store(store_dir=os.path.join(args.hathitrust_path, prefix)))
+                    o = pt.get_object(rest, create_if_doesnt_exist=False)
+                    part = o.list_parts()[0]
+                    zf_name = [x for x in o.list_parts(part) if x.endswith("zip")]
+                    zf = o.get_bytestream(os.path.join(part, zf_name[0]), streamable=True)
+                    document_pages = []
+                    with zipfile.ZipFile(zf, "r") as zifd:
+                        for page in zifd.namelist():
+                            document_pages.append(zifd.read(page).decode("utf-8"))                            
+                    document_text = "\n".join(document_pages)
+                    print(len(document_text))
                     id_toks = document_id.split(".")
                     pairtree_name = id_toks[0].replace('/', '.')
                     pairtree_path = ".".join(id_toks[1:]).replace('/', '.')
