@@ -236,20 +236,19 @@ if __name__ == "__main__":
                 try:
                     document_id = toks[0].strip()
                     doc_id_toks = document_id.split(".")
-                    print(document_id)
-                    prefix = doc_id_toks[0]
-                    rest = ".".join(doc_id_toks[1:])
-                    pt = pts.setdefault(prefix, psf.get_store(store_dir=os.path.join(args.hathitrust_path, prefix)))
-                    o = pt.get_object(rest, create_if_doesnt_exist=False)
-                    part = o.list_parts()[0]
-                    zf_name = [x for x in o.list_parts(part) if x.endswith("zip")]
-                    zf = o.get_bytestream(os.path.join(part, zf_name[0]), streamable=True)
-                    document_pages = []
-                    with zipfile.ZipFile(zf, "r") as zifd:
-                        for page in zifd.namelist():
-                            document_pages.append(zifd.read(page).decode("utf-8"))                            
-                    document_text = "\n".join(document_pages)
-                    print(len(document_text))
+                    if args.hathitrust_path:
+                        prefix = doc_id_toks[0]
+                        rest = ".".join(doc_id_toks[1:])
+                        pt = pts.setdefault(prefix, psf.get_store(store_dir=os.path.join(args.hathitrust_path, prefix)))
+                        o = pt.get_object(rest, create_if_doesnt_exist=False)
+                        part = o.list_parts()[0]
+                        zf_name = [x for x in o.list_parts(part) if x.endswith("zip")]
+                        zf = o.get_bytestream(os.path.join(part, zf_name[0]), streamable=True)
+                        document_pages = []
+                        with zipfile.ZipFile(zf, "r") as zifd:
+                            for page in zifd.namelist():
+                                document_pages.append(zifd.read(page).decode("utf-8"))                            
+                        document_text = "\n".join(document_pages)
                     id_toks = document_id.split(".")
                     pairtree_name = id_toks[0].replace('/', '.')
                     pairtree_path = ".".join(id_toks[1:]).replace('/', '.')
@@ -262,7 +261,8 @@ if __name__ == "__main__":
                     publication_place = toks[17].strip()
                     language = toks[18].strip()
                     document_type = toks[19].strip()
-                    
+                    if int(publication_year) > 1800:
+                        continue
                     for a, b, d in re.findall(r"([a-zA-Z][^\d]*)(?:(?P<birth>\d+)\-(?P<death>\d+)?)?", author):
                         m = re.match(r"^(?P<last>.*?)(?:,(?P<first>.*))?$", a)
                         if m:
@@ -290,9 +290,10 @@ if __name__ == "__main__":
                             URIRef("http://cdh.jhu.edu/materials/{}/{}".format(pairtree_name, pairtree_path))
                         )
                     )
-                    arcname = os.path.join(pairtree_name, pairtree_path)
-                    zofd.writestr(arcname, document_text)
-                    zofd.writestr("{}.metadata".format(arcname), json.dumps({"content_type" : "text/plain"}))
+                    if args.hathitrust_path:
+                        arcname = os.path.join(pairtree_name, pairtree_path)
+                        zofd.writestr(arcname, document_text)
+                        zofd.writestr("{}.metadata".format(arcname), json.dumps({"content_type" : "text/plain"}))
                     data_graph.add(
                         (
                             CDH[document_id],
