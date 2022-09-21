@@ -1,0 +1,43 @@
+@prefix cdh: <http://cdh.jhu.edu/materials/> .
+@prefix ns1: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+cdh:AuthorShape a ns1:NodeShape ;
+    ns1:closed true ;
+    ns1:property [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/familyName> ],
+        [ ns1:datatype xsd:date ;
+            ns1:path <https://schema.org/deathDate> ],
+        [ ns1:datatype xsd:date ;
+            ns1:lessThan <https://schema.org/deathDate> ;
+            ns1:path <https://schema.org/birthDate> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/givenName> ] ;
+    ns1:targetClass cdh:Author .
+
+cdh:DocumentShape a ns1:NodeShape ;
+    ns1:closed true ;
+    ns1:property [ ns1:maxInclusive "2022-01-01"^^xsd:date ;
+            ns1:path <https://schema.org/datePublished> ],
+        [ ns1:class cdh:Publisher ;
+            ns1:path <https://schema.org/publisher> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/contentUrl> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/inLanguage> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/position> ],
+        [ ns1:class cdh:Author ;
+            ns1:path <https://schema.org/creator> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/name> ] ;
+    ns1:targetClass cdh:Document .
+
+cdh:PublisherShape a ns1:NodeShape ;
+    ns1:closed true ;
+    ns1:property [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/name> ],
+        [ ns1:datatype xsd:string ;
+            ns1:path <https://schema.org/location> ] ;
+    ns1:targetClass cdh:Publisher .
+
