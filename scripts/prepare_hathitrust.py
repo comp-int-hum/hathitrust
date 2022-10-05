@@ -50,7 +50,7 @@ def partial(gr, fname, authors, publishers):
                     Literal(last)
                 )
             )
-            if birth_year:
+            if birth_year and birth_year > 100:
                 gr.add(
                     (
                         CDH[aid],
@@ -58,7 +58,7 @@ def partial(gr, fname, authors, publishers):
                         Literal("{}-01-01".format(birth_year), datatype=XSD.date)
                     )
                 )
-            if death_year:
+            if death_year and death_year > 100:
                 gr.add(
                     (
                         CDH[aid],
@@ -102,6 +102,7 @@ def partial(gr, fname, authors, publishers):
                 Literal(place)
             )
         )
+    print(len(gr))
     gr.serialize(destination=fname)
 
 
@@ -212,9 +213,12 @@ if __name__ == "__main__":
     annotation_graph = Graph()
     annotation_graph.bind("cdh", CDH)
 
+    seen = set()
+    
     pts = {}
     psf = PairtreeStorageFactory()
-    with gzip.open(args.csv_input, "rt") as ifd, zipfile.ZipFile(args.materials_output, "w") as zofd:
+    zofd = zipfile.ZipFile(args.materials_output, "w") if args.materials_output else None
+    with gzip.open(args.csv_input, "rt") as ifd:
         c = csv.reader(ifd, delimiter="\t")        
         for i, toks in enumerate(c):
         # for i, (htid, access, rights, ht_bib_key, description, source,
@@ -224,11 +228,9 @@ if __name__ == "__main__":
         #         bib_fmt, collection_code, content_provider_code,
         #         responsible_entity_code, digitization_agent_code,
         #         access_profile_code, author) in enumerate(c):
-            if len(data_graph) > 5000:
-                partial(data_graph, args.data_output, author_ids, publisher_ids)
-                schema_graph.serialize(destination=args.schema_output)
-                annotation_graph.serialize(destination=args.annotation_output)
-                break            
+            #if len(data_graph) > 5000000:
+
+            #break            
             access = toks[1]
             if access == "deny":
                 pass
@@ -261,8 +263,12 @@ if __name__ == "__main__":
                     publication_place = toks[17].strip()
                     language = toks[18].strip()
                     document_type = toks[19].strip()
-                    if int(publication_year) > 1800:
+                    key = (author, title, enumeration)
+                    
+                    if key in seen or len(publication_year) <= 1 or int(publication_year) > 1890 or language != "eng":
                         continue
+                    seen.add(key)
+                    #print(language)
                     for a, b, d in re.findall(r"([a-zA-Z][^\d]*)(?:(?P<birth>\d+)\-(?P<death>\d+)?)?", author):
                         m = re.match(r"^(?P<last>.*?)(?:,(?P<first>.*))?$", a)
                         if m:
@@ -348,6 +354,14 @@ if __name__ == "__main__":
                             )
                         )
                 except Exception as e:
-                    print(e)
+                    #print(e)
+                    #print(title)
                     pass
-                
+    print(len(seen))
+    print(len(data_graph))
+    print(len(schema_graph))
+    print(len(annotation_graph))
+    partial(data_graph, args.data_output, author_ids, publisher_ids)
+    
+    schema_graph.serialize(destination=args.schema_output)
+    annotation_graph.serialize(destination=args.annotation_output)                
